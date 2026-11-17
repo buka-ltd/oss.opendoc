@@ -178,6 +178,18 @@ describe('UriTemplate', () => {
         const context: UriTemplateContext = { id: '123' }
         expect(template.expand(context)).toBe('/users/123')
       })
+
+      it('does not split multibyte characters', () => {
+        const template = new UriTemplate('{clef:1}')
+        const context: UriTemplateContext = { clef: '𝄞' }
+        expect(template.expand(context)).toBe('%F0%9D%84%9E')
+      })
+
+      it('counts code points rather than UTF-16 units', () => {
+        const template = new UriTemplate('{mix:2}')
+        const context: UriTemplateContext = { mix: 'a𝄞b' }
+        expect(template.expand(context)).toBe('a%F0%9D%84%9E')
+      })
     })
 
     describe('Explode (*)', () => {
@@ -223,6 +235,12 @@ describe('UriTemplate', () => {
         expect(template.expand(context)).toBe('/items/')
       })
 
+      it('expands empty array in query to nothing', () => {
+        const template = new UriTemplate('{?empty_list}')
+        const context: UriTemplateContext = { empty_list: [] }
+        expect(template.expand(context)).toBe('')
+      })
+
       it('filters null values', () => {
         const template = new UriTemplate('/items/{list}')
         const context: UriTemplateContext = { list: ['a', null, 'b', 'c'] }
@@ -247,6 +265,12 @@ describe('UriTemplate', () => {
         }
         expect(template.expand(context)).toBe('a,1,c,3')
       })
+
+      it('expands empty object in query to nothing', () => {
+        const template = new UriTemplate('{?empty_assoc}')
+        const context: UriTemplateContext = { empty_assoc: {} }
+        expect(template.expand(context)).toBe('')
+      })
     })
   })
 
@@ -267,6 +291,23 @@ describe('UriTemplate', () => {
       const template = new UriTemplate('{+reserved}')
       const context: UriTemplateContext = { reserved: '/:?#[]@!$&\'()*+,;=' }
       expect(template.expand(context)).toBe('/:?#[]@!$&\'()*+,;=')
+    })
+
+    it('keeps percent-encoded triplets in query variable names', () => {
+      const template = new UriTemplate('/lookup{?Stra%C3%9Fe}')
+      const context: UriTemplateContext = { 'Stra%C3%9Fe': 'Grüner Weg' }
+      expect(template.expand(context)).toBe('/lookup?Stra%C3%9Fe=Gr%C3%BCner%20Weg')
+    })
+
+    it('escapes bare percent in reserved expansion', () => {
+      const context: UriTemplateContext = { not_pct: '%foo' }
+      expect(new UriTemplate('{+not_pct}').expand(context)).toBe('%25foo')
+      expect(new UriTemplate('{#not_pct}').expand(context)).toBe('#%25foo')
+    })
+
+    it('keeps valid percent triplets in reserved expansion', () => {
+      const context: UriTemplateContext = { half: '50%25' }
+      expect(new UriTemplate('{+half}').expand(context)).toBe('50%25')
     })
   })
 

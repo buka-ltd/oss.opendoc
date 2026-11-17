@@ -4,7 +4,7 @@ import { isNotNil } from './utils/is-not-nil'
 import { UriTemplateContext } from './types/context'
 import { isJsonPrimitive } from './utils/is-json-primitive'
 import { isQueryOperator } from './utils/is-query-operator'
-import { encodeReserved, encodeUnreserved, encodeValue } from './utils/encode-value'
+import { encodeName, encodeReserved, encodeValue } from './utils/encode-value'
 
 export class UriTemplateParser {
   constructor(public template: string, public context: UriTemplateContext) {
@@ -20,7 +20,9 @@ export class UriTemplateParser {
         value = value.toString()
 
         if (modifier && modifier !== '*') {
-          value = value.substring(0, modifier)
+          value = Array.from(value)
+            .slice(0, modifier)
+            .join('')
         }
 
         result.push(encodeValue(operator, value, isQueryOperator(operator) ? key : undefined))
@@ -47,15 +49,17 @@ export class UriTemplateParser {
           } else {
             for (const [k, v] of Object.entries(value)) {
               if (isNotNil(v)) {
-                tmp.push(encodeUnreserved(k))
+                tmp.push(encodeName(k))
                 tmp.push(encodeValue(operator, v.toString()))
               }
             }
           }
 
-          if (isQueryOperator(operator)) {
-            result.push(encodeUnreserved(key) + '=' + tmp.join(','))
-          } else if (tmp.length !== 0) {
+          if (tmp.length === 0) {
+            // Empty list or map counts as undefined (RFC 6570 section 3.2.1).
+          } else if (isQueryOperator(operator)) {
+            result.push(encodeName(key) + '=' + tmp.join(','))
+          } else {
             result.push(tmp.join(','))
           }
         }
@@ -63,10 +67,10 @@ export class UriTemplateParser {
     } else {
       if (operator === Operator.SEMI) {
         if (isNotNil(value)) {
-          result.push(encodeUnreserved(key))
+          result.push(encodeName(key))
         }
       } else if (value === '' && (operator === Operator.AMP || operator === Operator.QUESTION)) {
-        result.push(encodeUnreserved(key) + '=')
+        result.push(encodeName(key) + '=')
       } else if (value === '') {
         result.push('')
       }
