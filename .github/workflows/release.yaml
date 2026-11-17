@@ -107,6 +107,7 @@ jobs:
       - name: Publish Packages
         env:
           NODE_AUTH_TOKEN: ''
+          NPM_CONFIG_LOGLEVEL: verbose
         run: pnpm --filter @opendoc/uri-template publish --provenance --access=public
 
   buildBackendApplication:
