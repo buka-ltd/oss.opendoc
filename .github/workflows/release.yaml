@@ -95,7 +95,7 @@ jobs:
       - name: Build Packages
         run: pnpm run build:pkg
       - name: Publish Packages
-        run: pnpm -r publish --provenance --access=public
+        run: pnpm --filter @opendoc/uri-template publish --provenance --access=public
 
   buildBackendApplication:
     name: "Build Backend Application"
