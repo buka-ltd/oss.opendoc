@@ -98,6 +98,7 @@ jobs:
       - name: Build Packages
         run: pnpm run build:pkg
       - name: Publish Packages
+        working-directory: pkg/uri-template
         env:
           NODE_AUTH_TOKEN: ''
         run: |
@@ -105,7 +106,7 @@ jobs:
           NPM_TOKEN=$(curl -s -X POST "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/@opendoc%2Furi-template" -H "Authorization: Bearer $ID_TOKEN" -H "Content-Type: application/json" | jq -r .token)
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "$NPM_CONFIG_USERCONFIG" || true
           echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
-          pnpm --filter @opendoc/uri-template publish --provenance --access=public --no-git-checks
+          npm publish --provenance --access=public
 
   buildBackendApplication:
     name: "Build Backend Application"
