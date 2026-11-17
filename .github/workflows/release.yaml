@@ -103,8 +103,9 @@ jobs:
         run: |
           ID_TOKEN=$(curl -s -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" -H "Accept: application/json" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=npm%3Aregistry.npmjs.org" | jq -r .value)
           NPM_TOKEN=$(curl -s -X POST "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/@opendoc%2Furi-template" -H "Authorization: Bearer $ID_TOKEN" -H "Content-Type: application/json" | jq -r .token)
-          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "$NPM_CONFIG_USERCONFIG"
-          pnpm --filter @opendoc/uri-template publish --provenance --access=public
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" >> "$NPM_CONFIG_USERCONFIG" || true
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+          pnpm --filter @opendoc/uri-template publish --provenance --access=public --no-git-checks
 
   buildBackendApplication:
     name: "Build Backend Application"
