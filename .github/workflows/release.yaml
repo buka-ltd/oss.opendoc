@@ -102,9 +102,12 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ''
         run: |
+          # pnpm's publish does not perform the OIDC exchange itself, so exchange
+          # the GitHub Actions OIDC token for an npm token manually and pass it
+          # to npm via CLI flag.
           ID_TOKEN=$(curl -s -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" -H "Accept: application/json" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=npm%3Aregistry.npmjs.org" | jq -r .value)
           NPM_TOKEN=$(curl -s -X POST "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/@opendoc%2Furi-template" -H "Authorization: Bearer $ID_TOKEN" -H "Content-Type: application/json" | jq -r .token)
-          npm publish --provenance --access=public "--//registry.npmjs.org/:_authToken=${NPM_TOKEN}" --loglevel verbose
+          npm publish --provenance --access=public "--//registry.npmjs.org/:_authToken=${NPM_TOKEN}"
 
   buildBackendApplication:
     name: "Build Backend Application"
