@@ -99,10 +99,11 @@ jobs:
         run: pnpm run build:pkg
       - name: Debug auth env
         run: |
-          echo "ACTIONS_ID_TOKEN_REQUEST_URL=${ACTIONS_ID_TOKEN_REQUEST_URL:+SET}"
-          echo "ACTIONS_ID_TOKEN_REQUEST_TOKEN=${ACTIONS_ID_TOKEN_REQUEST_TOKEN:+SET}"
-          echo "NODE_AUTH_TOKEN=${NODE_AUTH_TOKEN:+SET}"
-          echo "GITHUB_ACTIONS=$GITHUB_ACTIONS"
+          ID_TOKEN=$(curl -s -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" -H "Accept: application/json" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=npm%3Aregistry.npmjs.org" | jq -r .value)
+          echo "ID token acquired: ${ID_TOKEN:+yes}"
+          echo "--- token exchange response ---"
+          curl -s -X POST "https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/@opendoc%2Furi-template" \
+            -H "Authorization: Bearer $ID_TOKEN" -H "Content-Type: application/json" -w "\nHTTP %{http_code}\n"
       - name: Publish Packages
         env:
           NODE_AUTH_TOKEN: ''
