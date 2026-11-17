@@ -3,9 +3,16 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+  packages: write
 
 jobs:
   pullRequest:
@@ -21,7 +28,7 @@ jobs:
           private-key: ${{ secrets.BOT_PRIVATE_KEY }}
       - name: Checkout Repo
         uses: actions/checkout@v4
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
           node-version-file: ".node-version"
@@ -39,7 +46,7 @@ jobs:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
       - id: result
         run: |
-          RELEASED=$([ "${{ steps.changesets.outputs.hasChangesets }}" = 'false' ] && [ "${{ github.event.head_commit.message }}" = 'Release' ] && echo true || echo false)
+          RELEASED=$([ "${{ steps.changesets.outputs.hasChangesets }}" = 'false' ] && { [ "${{ github.event.head_commit.message }}" = 'Release' ] || [ "${{ github.event_name }}" = 'workflow_dispatch' ]; } && echo true || echo false)
           echo "released=$RELEASED" >> $GITHUB_OUTPUT
 
   createTags:
@@ -50,7 +57,7 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
-      - name: Setup Node.js 20
+      - name: Setup Node.js 24
         uses: actions/setup-node@v4
         with:
           node-version-file: ".node-version"
@@ -72,21 +79,23 @@ jobs:
           echo $TAGS | xargs -n1 | sort | uniq -u | xargs -n1 git push origin
 
   publishToNpm:
+    name: Publish to npm
     runs-on: ubuntu-latest
     needs: pullRequest
     if: ${{ needs.pullRequest.outputs.released == 'true' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           registry-url: https://registry.npmjs.org/
           node-version-file: ".node-version"
       - uses: pnpm/action-setup@v4
-      - run: pnpm install
-      - run: pnpm run build:pkg
-      - run: pnpm -r publish --provenance --access=public
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.NPM_TOKEN}}
+      - name: Install Dependencies
+        run: pnpm install
+      - name: Build Packages
+        run: pnpm run build:pkg
+      - name: Publish Packages
+        run: pnpm -r publish --provenance --access=public
 
   buildBackendApplication:
     name: "Build Backend Application"
@@ -95,12 +104,18 @@ jobs:
     if: ${{ needs.pullRequest.outputs.released == 'true' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: buka-lnc/github.actions/build-docker-image@main
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          dockerfile: ./app/backend/dockerfile
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./app/backend/dockerfile
+          push: true
           tags: ghcr.io/buka-lnc/opendoc-backend:latest
 
   buildFrontendApplication:
@@ -110,12 +125,18 @@ jobs:
     if: ${{ needs.pullRequest.outputs.released == 'true' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: buka-lnc/github.actions/build-docker-image@main
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          dockerfile: ./app/frontend/dockerfile
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./app/frontend/dockerfile
+          push: true
           tags: ghcr.io/buka-lnc/opendoc-frontend:latest
 
   buildCompilerApplication:
@@ -125,10 +146,16 @@ jobs:
     if: ${{ needs.pullRequest.outputs.released == 'true' }}
     steps:
       - uses: actions/checkout@v4
-      - uses: buka-lnc/github.actions/build-docker-image@main
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          dockerfile: ./app/compiler/dockerfile
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./app/compiler/dockerfile
+          push: true
           tags: ghcr.io/buka-lnc/opendoc-compiler:latest
